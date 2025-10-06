@@ -15,16 +15,19 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import platform
+from telegram import Bot 
 
 # ==============================================================================
 # 1. GLOBAL CONFIGURATIONS
 # ==============================================================================
 
 # --- API Keys & Credentials ---
-GEMINI_API_KEY = "AIzaSyCVhfuKmJtLr8DJVRv_226xuuwE_wSAnBM"
+GEMINI_API_KEY = "AIzaSyBX-VEDuwVAVq7SqE93H97SZdZafZ05qwo"
 EMAIL_SENDER = "info.masika@gmail.com"  
 EMAIL_PASSWORD = "tglf gszh exgn gnmz"       
 EMAIL_RECEIVER = "vishmapasayat003@gmail.com"
+TELEGRAM_BOT_TOKEN = "8299424127:AAFMsj-B27vAK_XRHGnzLYIiLDE1KVf40p0"
+TELEGRAM_CHAT_ID = 6667227040  # <-- Replace with your actual chat ID
 
 # --- Gemini AI Safety Settings ---
 SAFETY_SETTINGS = [
@@ -336,7 +339,6 @@ def generate_recommendations_from_inputs(age, cycle_days, period_days, descripti
     except Exception as e:
         return f"ERROR_GENERATING_RECOMMENDATIONS: {e}"
 
-
 # ==============================================================================
 # 4. DATABASE INITIALIZATION CALL
 # ==============================================================================
@@ -369,95 +371,25 @@ def order_product():
     if not address or not phone:
         return jsonify({'success': False, 'message': 'Address and phone number are required.'})
 
-    logo_url = "https://i.supaimg.com/dfa8394d-f6e0-4322-aab4-ee390fab1dd5.png"
+    # --- Telegram Notification instead of Email ---
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    email_body = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-        <title>New Product Order</title>
-    </head>
-    <body style="font-family: 'Poppins', sans-serif; background-color: #fdf6f7; margin: 0; padding: 0;">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-            <tr>
-                <td style="padding: 20px 0;">
-                    <table align="center" role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin: 0 auto; overflow: hidden; border: 1px solid #e1e1e1;">
-                        <tr>
-                            <td align="center" style="background: linear-gradient(135deg, #FF6B8B, #FFD194); padding: 30px 20px;">
-                                <img src="{logo_url}" alt="MASIKA Logo" width="80" height="80" style="display: block; margin: 0 auto; border: 0;">
-                                <h1 style="color: #ffffff; font-size: 28px; font-weight: 600; margin: 15px 0 0; letter-spacing: 0.5px; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">New Product Order</h1>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 35px 40px;">
-                                <p style="font-size: 16px; color: #34495e; line-height: 1.6; margin-top: 0; font-weight: 400;">Hello, you've received a new order from the MASIKA app:</p>
-                                <h2 style="color: #2c3e50; font-size: 20px; font-weight: 600; margin-top: 30px; margin-bottom: 20px; border-bottom: 2px solid #f2f2f2; padding-bottom: 12px;">Order Summary</h2>
-                                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 16px; color: #34495e; line-height: 1.7;">
-                                    <tr>
-                                        <td style="padding: 10px 0; font-weight: 600; width: 150px;">Product:</td>
-                                        <td style="padding: 10px 0;">{product_name}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 10px 0; font-weight: 600;">Quantity:</td>
-                                        <td style="padding: 10px 0;">{quantity}</td>
-                                    </tr>
-                                </table>
-                                <h2 style="color: #2c3e50; font-size: 20px; font-weight: 600; margin-top: 35px; margin-bottom: 20px; border-bottom: 2px solid #f2f2f2; padding-bottom: 12px;">Customer Information</h2>
-                                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 16px; color: #34495e; line-height: 1.7;">
-                                    <tr>
-                                        <td style="padding: 10px 0; font-weight: 600; width: 150px;">Name:</td>
-                                        <td style="padding: 10px 0;">{user_name}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 10px 0; font-weight: 600;">Email:</td>
-                                        <td style="padding: 10px 0;"><a href="mailto:{user_email}" style="color: #FF6B8B; text-decoration: none; font-weight: 500;">{user_email}</a></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 10px 0; font-weight: 600;">Phone:</td>
-                                        <td style="padding: 10px 0;">{phone}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 10px 0; font-weight: 600;">Address:</td>
-                                        <td style="padding: 10px 0;">{address}</td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td align="center" style="background-color: #f7f9fa; color: #888888; padding: 25px 20px; font-size: 13px; border-top: 1px solid #e9ecef;">
-                                <p style="margin: 0;">This is an automated notification from the MASIKA App.</p>
-                                <p style="margin: 8px 0 0;">Timestamp: {current_time}</p>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>
-    """
-
-    msg = MIMEMultipart()
-    msg['From'] = EMAIL_SENDER
-    msg['To'] = EMAIL_RECEIVER
-    msg['Subject'] = f"✨ New Product Order from {user_name}!"
-    msg.attach(MIMEText(email_body, 'html'))
+    message_text = f"📦 *New Product Order from MASIKA App!*\n\n" \
+                   f"*Product:* {product_name}\n" \
+                   f"*Quantity:* {quantity}\n\n" \
+                   f"*Customer Info:*\n" \
+                   f"Name: {user_name}\n" \
+                   f"Email: {user_email}\n" \
+                   f"Phone: {phone}\n" \
+                   f"Address: {address}\n\n" \
+                   f"🕒 Order Time: {current_time}"
 
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-        server.send_message(msg)
-        server.quit()
-        return jsonify({'success': True, 'message': 'Order placed successfully! We will contact you shortly.'})
+        bot = Bot(token=TELEGRAM_BOT_TOKEN)
+        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message_text, parse_mode="Markdown")
+        return jsonify({'success': True, 'message': 'Order placed successfully! Telegram notification sent.'})
     except Exception as e:
-        return jsonify({'success': False, 'message': f'Could not send order confirmation. Please try again later. Error: {str(e)}'})
+        return jsonify({'success': False, 'message': f'Telegram notification failed. Error: {str(e)}'})
 
 @app.route("/", methods=["GET"])
 def index():
