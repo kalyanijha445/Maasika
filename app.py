@@ -2,12 +2,12 @@ import os
 import random
 import sqlite3
 import time
-import re # Added for better text parsing
+import re
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
 from werkzeug.utils import secure_filename
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont # Import ImageFont
 from fpdf import FPDF
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
@@ -17,19 +17,12 @@ from email.mime.text import MIMEText
 import platform
 from telegram import Bot 
 
-# ==============================================================================
-# 1. GLOBAL CONFIGURATIONS
-# ==============================================================================
-
-# --- API Keys & Credentials ---
 GEMINI_API_KEY = "AIzaSyBX-VEDuwVAVq7SqE93H97SZdZafZ05qwo"
 EMAIL_SENDER = "info.masika@gmail.com"  
 EMAIL_PASSWORD = "tglf gszh exgn gnmz"       
 EMAIL_RECEIVER = "vishmapasayat003@gmail.com"
 TELEGRAM_BOT_TOKEN = "8299424127:AAFMsj-B27vAK_XRHGnzLYIiLDE1KVf40p0"
-TELEGRAM_CHAT_ID = 6667227040  # <-- Replace with your actual chat ID
-
-# --- Gemini AI Safety Settings ---
+TELEGRAM_CHAT_ID = 6667227040  
 SAFETY_SETTINGS = [
     {"category": HarmCategory.HARM_CATEGORY_HATE_SPEECH, "threshold": HarmBlockThreshold.BLOCK_NONE},
     {"category": HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, "threshold": HarmBlockThreshold.BLOCK_NONE},
@@ -37,12 +30,12 @@ SAFETY_SETTINGS = [
     {"category": HarmCategory.HARM_CATEGORY_HARASSMENT, "threshold": HarmBlockThreshold.BLOCK_NONE}
 ]
 
-# --- Application & Database Settings ---
+
 DB_NAME = "cycle_users.db"
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 ALLOWED_EXT = {"jpg", "jpeg", "png", "bmp", "tiff"}
 
-# --- Language Mapping ---
+
 LANGUAGE_MAP = {
     "en": "English", "as": "Assamese", "bn": "Bengali", "brx": "Bodo", "doi": "Dogri",
     "gu": "Gujarati", "hi": "Hindi", "kn": "Kannada", "ks": "Kashmiri", "kok": "Konkani",
@@ -51,22 +44,12 @@ LANGUAGE_MAP = {
     "sd": "Sindhi", "ta": "Tamil", "te": "Telugu", "ur": "Urdu"
 }
 
-# ==============================================================================
-# 2. FLASK APP INITIALIZATION
-# ==============================================================================
-
 app = Flask(__name__)
 app.secret_key = "super_secret_key_replace_this"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# --- Configure Google AI ---
 genai.configure(api_key=GEMINI_API_KEY)
-
-
-# ==============================================================================
-# 3. HELPER FUNCTIONS
-# ==============================================================================
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -87,7 +70,7 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT
 
 def _wrap_long_tokens(text, max_len=60):
-    # This helper remains useful for PDF wrapping if needed
+   
     out = []
     for token in (text or "").split():
         if len(token) <= max_len:
@@ -98,13 +81,10 @@ def _wrap_long_tokens(text, max_len=60):
     return " ".join(out)
 
 def sanitize_text_for_pdf(text):
-    # Replace unsupported Unicode characters with safe alternatives
-    # Latin-1 only supports 0–255
     return text.replace("•", "").encode("latin-1", "replace").decode("latin-1")
 
-# ===== UPDATED & CORRECTED PDF GENERATION FUNCTION =====
 def create_pdf_report(patient_name, summary_text, meta: dict):
-    # --- Masika Brand & Info ---
+    
     BRAND_NAME = "MASIKA"
     BRAND_TAGLINE = "Rewrite Your Period Story"
     BRAND_WEBSITE = "https://masika.onrender.com"
@@ -113,17 +93,17 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     BRAND_ADDRESS = "BPUT Campus, Biju Patnaik University Of Technology, Odisha, Rourkela - 769015"
     LOGO_PATH = os.path.join("static", "logo.png")
     
-    # --- Professional & Modern Color Palette ---
-    COLOR_PRIMARY_LIGHT = (245, 235, 238)  # Very light pink for subtle backgrounds
-    COLOR_ACCENT = (235, 120, 140)         # A softer pink for subtle lines/accents
-    COLOR_TEXT_DARK = (45, 45, 45)         # Dark charcoal for main text and new headers
-    COLOR_TEXT_MEDIUM = (85, 85, 85)       # Grey for labels and secondary text
-    COLOR_TEXT_LIGHT = (140, 140, 140)     # Light grey for meta info
-    COLOR_WHITE = (255, 255, 255)
-    GRADIENT_START = (255, 255, 255)       # Gradient: White
-    GRADIENT_END = (252, 240, 243)         # Gradient: Very soft pink
 
-    # Helper function to generate a gradient image for the header
+    COLOR_PRIMARY_LIGHT = (245, 235, 238)  
+    COLOR_ACCENT = (235, 120, 140)         
+    COLOR_TEXT_DARK = (45, 45, 45)         
+    COLOR_TEXT_MEDIUM = (85, 85, 85)       
+    COLOR_TEXT_LIGHT = (140, 140, 140)     
+    COLOR_WHITE = (255, 255, 255)
+    GRADIENT_START = (255, 255, 255)       
+    GRADIENT_END = (252, 240, 243)         
+
+   
     def create_gradient_header(width, height, start_color, end_color, filename):
         img = Image.new("RGB", (width, height), "#FFFFFF")
         draw = ImageDraw.Draw(img)
@@ -133,7 +113,7 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
             draw.line([(0, i), (width, i)], fill=(r, g, b))
         img.save(filename); return filename
 
-    # Custom PDF class for automatic header/footer
+
     class PDF(FPDF):
         def footer(self):
             self.set_y(-18)
@@ -145,7 +125,7 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
             self.cell(0, 5, BRAND_ADDRESS, 0, 1, 'C')
             self.cell(0, 5, f'Page {self.page_no()}', 0, 0, 'C')
 
-    # --- PDF Initialization ---
+    
     pdf = PDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=20)
@@ -157,7 +137,7 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
         print("Arial font not found, falling back to core FPDF fonts.")
     pdf.set_font("Arial", "", 10)
 
-    # --- 1. Header Section ---
+    
     gradient_img_path = create_gradient_header(210, 32, GRADIENT_START, GRADIENT_END, os.path.join(app.config["UPLOAD_FOLDER"], "header_gradient.png"))
     pdf.image(gradient_img_path, 0, 0, 210, 32)
     if os.path.exists(LOGO_PATH):
@@ -171,13 +151,13 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     pdf.cell(0, 5, f"Phone: {BRAND_PHONE}", ln=True, align='R'); pdf.set_x(145)
     pdf.cell(0, 5, f"Website: {BRAND_WEBSITE}", ln=True, align='R'); pdf.ln(18)
 
-    # --- 2. Report Title ---
+    
     pdf.set_font('Arial', 'B', 20)
     pdf.set_text_color(*COLOR_TEXT_DARK)
     pdf.cell(0, 10, "AI-Analysed Health Report", ln=True, align='C') 
     pdf.ln(12)
 
-    # --- 3. Patient Information Block (Redesigned & Corrected Alignment) ---
+   
     pdf.set_font('Arial', 'B', 12)
     pdf.set_text_color(*COLOR_ACCENT)
     pdf.cell(0, 8, "Patient & Report Details", ln=True)
@@ -201,22 +181,21 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     
     pdf.set_xy(110, y_start); info_row("Typical Period Duration", f"{meta.get('Period Days', 'N/A')} days")
     pdf.set_x(110); info_row("Report ID", report_id)
-    pdf.set_x(110); info_row("Report Generated On", meta.get("Report Generated", "N/A"))
+    pdf.set_x(110); info_row("Report Generated On", meta.get("Report Generated On", "N/A"))
     y_right_end = pdf.get_y()
     
     pdf.set_y(max(y_left_end, y_right_end) + 5) 
 
-    # --- 4. Report Body (Corrected Parsing) ---
+    
     def parse_masika_sections(text):
         sections = {}
         parts = re.split(r'\n*\s*(?=(SUMMARY|WHAT_TO_DO|WHAT_TO_AVOID|DIET_SUGGESTIONS|FOLLOW_UP):)', text)
         for i in range(1, len(parts), 2):
             keyword = parts[i]
-            # Strip colon from the start of the content
+           
             content = parts[i+1].lstrip(':').strip()
             
-            # ===== FIX #1: REMOVE DUPLICATE TITLE FROM CONTENT =====
-            # This handles cases where the AI inconsistently includes the title again.
+           
             if content.upper().startswith(keyword + ':'):
                 content = content[len(keyword)+1:].strip()
 
@@ -230,10 +209,10 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     for title_key in section_order:
         if title_key in sections and sections[title_key]:
             pdf.ln(5)
-            # Section Header with new dark gray color
+            
             pdf.set_font('Arial', 'B', 14)
             pdf.set_text_color(*COLOR_WHITE)
-            # ===== FIX #2: CHANGE HEADER BACKGROUND COLOR =====
+           
             pdf.set_fill_color(*COLOR_ACCENT) 
             section_title = f"  {title_key.replace('_', ' ').title()}  "
             pdf.cell(pdf.get_string_width(section_title) + 5, 9, section_title, ln=True, fill=True); pdf.ln(4)
@@ -242,20 +221,18 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
             pdf.set_text_color(*COLOR_TEXT_DARK)
             content_lines = [line.strip() for line in sections[title_key].split('\n') if line.strip()]
             
-            # === CHANGE STARTS HERE ===
+           
             for idx, line in enumerate(content_lines, start=1):
-                line = sanitize_text_for_pdf(line)  # Remove unsupported characters
+                line = sanitize_text_for_pdf(line) 
                 if line.startswith('•'):
                     pdf.set_x(15)
-                    pdf.cell(5, 6, f"{idx}.")  # Number instead of bullet
+                    pdf.cell(5, 6, f"{idx}.")  
                     pdf.multi_cell(180, 6, line[1:].strip())
                 else: 
                     pdf.set_x(10)
                     pdf.multi_cell(190, 6, line)
                 pdf.ln(2)
-            # === CHANGE ENDS HERE ===
-
-    # --- 5. Disclaimer Section ---
+           
     pdf.set_y(-45)
     pdf.set_fill_color(*COLOR_PRIMARY_LIGHT)
     pdf.rect(10, pdf.get_y() - 2, 190, 19, 'F')
@@ -264,12 +241,12 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     pdf.set_x(12); pdf.set_font('Arial', 'I', 8)
     pdf.multi_cell(186, 4, "This is an AI-assisted report generated by MASIKA for informational purposes only. It is not a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider for any medical concerns.")
     
-    # --- 6. Generate the PDF file ---
+   
     fname = f"{patient_name.replace(' ', '_')}_masika_report_{int(time.time())}.pdf"
     out_path = os.path.join(app.config["UPLOAD_FOLDER"], fname)
     pdf.output(out_path)
     return out_path
-# ===== END OF PDF FUNCTION =====
+
 
 
 def image_to_text_via_gemini(image_path):
@@ -339,14 +316,7 @@ def generate_recommendations_from_inputs(age, cycle_days, period_days, descripti
     except Exception as e:
         return f"ERROR_GENERATING_RECOMMENDATIONS: {e}"
 
-# ==============================================================================
-# 4. DATABASE INITIALIZATION CALL
-# ==============================================================================
 init_db()
-
-# ==============================================================================
-# 5. FLASK ROUTES
-# ==============================================================================
 
 def login_required(f):
     @wraps(f)
@@ -356,6 +326,162 @@ def login_required(f):
             return redirect(url_for("login"))
         return f(*args, **kwargs)
     return decorated_function
+
+def create_order_image_card(details):
+    """
+    Generates a visually appealing, high-resolution PNG image card for a new product order.
+    Args:
+        details (dict): A dictionary containing order information.
+    Returns:
+        str: The file path of the generated PNG image.
+    """
+    from textwrap import wrap
+    
+    # --- Card Configuration ---
+    scale = 2
+    width = 800 * scale
+    padding = 70 * scale
+    LOGO_PATH = os.path.join("static", "logo.png")
+
+    # --- Professional Color Palette ---
+    bg_color = (255, 255, 255)
+    header_gradient_start = (255, 243, 245)
+    header_gradient_end = (252, 238, 241)
+    text_color = (30, 30, 30)
+    label_color = (100, 100, 100)
+    accent_color = (211, 75, 96)
+    brand_title_color = (190, 60, 80)
+    line_color = (235, 235, 235)
+
+    # --- Advanced Font Setup ---
+    def get_font(style='regular', size=24):
+        font_map = {
+            'windows': {'bold': 'C:/Windows/Fonts/segoeuib.ttf', 'regular': 'C:/Windows/Fonts/segoeui.ttf', 'light': 'C:/Windows/Fonts/segoeuil.ttf'},
+            'linux': {'bold': '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 'regular': '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 'light': '/usr/share/fonts/truetype/dejavu/DejaVuSans-ExtraLight.ttf'},
+            'fallback': {'bold': 'arialbd.ttf', 'regular': 'arial.ttf', 'light': 'arial.ttf'}
+        }
+        system = platform.system().lower()
+        preferred = font_map.get('windows' if 'windows' in system else 'linux', font_map['fallback'])
+        font_path = preferred.get(style, preferred['regular'])
+        try:
+            return ImageFont.truetype(font_path, size)
+        except IOError:
+            try:
+                font_path = font_map['fallback'].get(style, font_map['fallback']['regular'])
+                return ImageFont.truetype(font_path, size)
+            except IOError:
+                 return ImageFont.load_default()
+
+    font_title = get_font('bold', 70 * scale)
+    font_tagline = get_font('regular', 24 * scale)
+    font_header = get_font('bold', 38 * scale)
+    font_label = get_font('regular', 28 * scale)
+    font_value = get_font('bold', 28 * scale)
+    font_address = get_font('regular', 26 * scale)
+
+    # --- Dynamic Drawing Logic ---
+    draw_list = []
+    
+    # 1. Header
+    header_height = int(200 * scale)
+
+    # BUG FIX: Added a second, unused parameter `_y` to match the calling signature in the loop.
+    def draw_header(draw_obj, _y):
+        for y in range(header_height):
+            r = int(header_gradient_start[0] + (header_gradient_end[0] - header_gradient_start[0]) * y / header_height)
+            g = int(header_gradient_start[1] + (header_gradient_end[1] - header_gradient_start[1]) * y / header_height)
+            b = int(header_gradient_start[2] + (header_gradient_end[2] - header_gradient_start[2]) * y / header_height)
+            draw_obj.line([(0, y), (width, y)], fill=(r, g, b))
+        
+        # Temp image needed for pasting RGBA logo onto an RGB background
+        temp_img_for_paste = Image.new('RGB', (width, header_height))
+        
+        if os.path.exists(LOGO_PATH):
+            logo_size = int(120 * scale)
+            logo_img = Image.open(LOGO_PATH).convert("RGBA")
+            logo_img.thumbnail((logo_size, logo_size), Image.Resampling.LANCZOS)
+            logo_y = (header_height - logo_size) // 2
+            
+            # Paste logo onto the main image
+            img.paste(logo_img, (padding, logo_y), logo_img)
+            text_x_start = padding + logo_size + int(30 * scale)
+        else:
+            text_x_start = padding
+        
+        draw_obj.text((text_x_start, 60 * scale), "MASIKA", font=font_title, fill=brand_title_color)
+        draw_obj.text((text_x_start, int(60 * scale + 75*scale*0.95)), "Rewrite Your Period Story", font=font_tagline, fill=label_color)
+
+    draw_list.append({'func': draw_header, 'height': header_height})
+    draw_list.append({'func': None, 'height': padding})
+
+    # 2. Section: New Order Received
+    draw_list.append({'func': lambda d, y: d.text((padding, y), "New Order Received", font=font_header, fill=accent_color), 'height': int(65*scale)})
+    
+    value_start_x = 300 * scale # <<< MODIFIED: Changed from 420 to 300 to give more space for the value text.
+    line_wrap_width = 32
+
+    def create_row_drawable(label, value, value_color=text_color):
+        wrapped_value = '\n'.join(wrap(str(value), width=line_wrap_width)) # Ensure value is a string
+        temp_draw = ImageDraw.Draw(Image.new('RGB', (1,1)))
+        bbox = temp_draw.multiline_textbbox((0,0), wrapped_value, font=font_value, spacing=int(10*scale))
+        height = (bbox[3] - bbox[1]) + int(30 * scale)
+
+        def draw_func(d, y):
+            d.text((padding, y), label, font=font_label, fill=label_color)
+            d.multiline_text((value_start_x, y), wrapped_value, font=font_value, fill=value_color, spacing=int(10*scale))
+        
+        return {'func': draw_func, 'height': height}
+    
+    draw_list.append(create_row_drawable("Product:", details['product_name']))
+    draw_list.append(create_row_drawable("Quantity:", details['quantity']))
+    draw_list.append(create_row_drawable("Order Time:", details['time']))
+    
+    def create_divider_drawable():
+        height = int(90 * scale)
+        def draw_func(d, y):
+            divider_y = y + (height // 2) - int(15 * scale)
+            d.line([(padding, divider_y), (width - padding, divider_y)], fill=line_color, width=3*scale)
+        return {'func': draw_func, 'height': height}
+        
+    draw_list.append(create_divider_drawable())
+
+    # 3. Section: Customer Information
+    draw_list.append({'func': lambda d, y: d.text((padding, y), "Customer Information", font=font_header, fill=accent_color), 'height': int(65*scale)})
+    draw_list.append(create_row_drawable("Name:", details['user_name']))
+    draw_list.append(create_row_drawable("Email:", details['user_email'], accent_color))
+    draw_list.append(create_row_drawable("Phone:", details['phone']))
+    
+    draw_list.append(create_divider_drawable())
+
+    # 4. Section: Shipping Address
+    draw_list.append({'func': lambda d, y: d.text((padding, y), "Shipping Address", font=font_header, fill=accent_color), 'height': int(65*scale)})
+    
+    # Address does not have a label, so it's handled differently
+    address_value = details['address']
+    wrapped_address = '\n'.join(wrap(address_value, width=line_wrap_width*2)) # Address can be wider
+    temp_draw = ImageDraw.Draw(Image.new('RGB', (1,1)))
+    bbox = temp_draw.multiline_textbbox((0,0), wrapped_address, font=font_address, spacing=int(10*scale))
+    address_height = (bbox[3] - bbox[1]) + int(20 * scale)
+    draw_list.append({'func': lambda d, y: d.multiline_text((padding, y), wrapped_address, font=font_address, fill=text_color, spacing=int(10*scale)), 'height': address_height})
+
+    # --- Calculate Total Height and Create Canvas ---
+    total_height = sum(item['height'] for item in draw_list) + padding
+    img = Image.new('RGB', (width, total_height), bg_color)
+    draw = ImageDraw.Draw(img)
+
+    # --- Execute All Drawing Functions ---
+    current_y = 0
+    for item in draw_list:
+        if item['func']:
+            item['func'](draw, current_y)
+        current_y += item['height']
+
+    # --- Finalize and Save ---
+    filename = f"order_{int(time.time())}.png"
+    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    img.save(filepath, "PNG", quality=95, optimize=True)
+    return filepath
+
 
 @app.route('/order_product', methods=['POST'])
 @login_required
@@ -370,26 +496,48 @@ def order_product():
 
     if not address or not phone:
         return jsonify({'success': False, 'message': 'Address and phone number are required.'})
-
-    # --- Telegram Notification instead of Email ---
+    
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    message_text = f"📦 *New Product Order from MASIKA App!*\n\n" \
-                   f"*Product:* {product_name}\n" \
-                   f"*Quantity:* {quantity}\n\n" \
-                   f"*Customer Info:*\n" \
-                   f"Name: {user_name}\n" \
-                   f"Email: {user_email}\n" \
-                   f"Phone: {phone}\n" \
-                   f"Address: {address}\n\n" \
-                   f"🕒 Order Time: {current_time}"
+    order_details = {
+        'product_name': product_name,
+        'quantity': quantity,
+        'user_name': user_name,
+        'user_email': user_email,
+        'phone': phone,
+        'address': address,
+        'time': current_time,
+    }
 
+    image_path = None
     try:
+        # Generate the beautiful image card
+        image_path = create_order_image_card(order_details)
+        
         bot = Bot(token=TELEGRAM_BOT_TOKEN)
-        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message_text, parse_mode="Markdown")
-        return jsonify({'success': True, 'message': 'Order placed successfully! Telegram notification sent.'})
+        
+        caption = f" ✨ New Order Received! ✨ from {user_name} !"
+
+        # Send the generated image to Telegram
+        with open(image_path, 'rb') as photo_file:
+            bot.send_photo(
+                chat_id=TELEGRAM_CHAT_ID,
+                photo=photo_file,
+                caption=caption
+            )
+        
+        message = 'Order placed successfully! A visual notification has been sent.'
+        return jsonify({'success': True, 'message': message})
+
     except Exception as e:
-        return jsonify({'success': False, 'message': f'Telegram notification failed. Error: {str(e)}'})
+        error_message = f'Failed to send Telegram notification. Error: {str(e)}'
+        print(f"TELEGRAM/IMAGE GEN ERROR: {error_message}")
+        return jsonify({'success': False, 'message': error_message})
+    finally:
+        # Clean up the generated image file
+        if image_path and os.path.exists(image_path):
+            os.remove(image_path)
+
 
 @app.route("/", methods=["GET"])
 def index():
@@ -469,7 +617,7 @@ def dashboard():
                 extracted = image_to_text_via_gemini(path)
                 extracted_images[path] = extracted
                 parsed = parse_lab_values_text(extracted)
-                parsed_values.update(parsed) # Use update to merge dicts
+                parsed_values.update(parsed) 
         
         recommendations_text = generate_recommendations_from_inputs(
             age, cycle_days, period_days, description, parsed_values, selected_language
@@ -493,14 +641,13 @@ def dashboard():
             "Report Generated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         
-        # === CHANGE STARTS HERE ===
+      
         if selected_language == "en":
             pdf_path = create_pdf_report(patient_name, recommendations_text, meta)
             pdf_link = url_for("download_file", filename=os.path.basename(pdf_path))
         else:
             pdf_link = None
-        # === CHANGE ENDS HERE ===
-
+       
     return render_template("dashboard.html", result=result, pdf_link=pdf_link)
 
 @app.route("/products")
@@ -542,8 +689,5 @@ def logout():
     flash("Logged out successfully!", "success")
     return redirect(url_for("login"))
 
-# ==============================================================================
-# 6. MAIN EXECUTION BLOCK
-# ==============================================================================
 if __name__ == "__main__":
     app.run(debug=True)
