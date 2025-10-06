@@ -4,3 +4,6 @@ Pillow
 fpdf
 google-generativeai
 gunicorn
+python-telegram-bot
+requests
+python-dotenv
