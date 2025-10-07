@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 import platform
 from telegram import Bot 
 
-GEMINI_API_KEY = "AIzaSyBX-VEDuwVAVq7SqE93H97SZdZafZ05qwo"
+GEMINI_API_KEY = "AIzaSyCWpJdW9AJWzYWrLXG3emrr4-UEoAlQ-J0"
 EMAIL_SENDER = "info.masika@gmail.com"  
 EMAIL_PASSWORD = "tglf gszh exgn gnmz"       
 EMAIL_RECEIVER = "vishmapasayat003@gmail.com"
@@ -63,6 +63,20 @@ def init_db():
             password TEXT
         )
     ''')
+    # --- MODIFICATION START: Add an orders table ---
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_name TEXT NOT NULL,
+            quantity TEXT NOT NULL,
+            user_name TEXT NOT NULL,
+            user_email TEXT NOT NULL,
+            phone TEXT NOT NULL,
+            address TEXT NOT NULL,
+            order_time TEXT NOT NULL
+        )
+    ''')
+    # --- MODIFICATION END ---
     conn.commit()
     conn.close()
 
@@ -509,6 +523,30 @@ def order_product():
         'time': current_time,
     }
 
+    # --- MODIFICATION START: Save order to the database instead of session ---
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO orders (product_name, quantity, user_name, user_email, phone, address, order_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                order_details['product_name'],
+                order_details['quantity'],
+                order_details['user_name'],
+                order_details['user_email'],
+                order_details['phone'],
+                order_details['address'],
+                order_details['time']
+            )
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"DATABASE ERROR: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to save order details.'})
+    # --- MODIFICATION END ---
+
+
     image_path = None
     try:
         # Generate the beautiful image card
@@ -649,6 +687,29 @@ def dashboard():
             pdf_link = None
        
     return render_template("dashboard.html", result=result, pdf_link=pdf_link)
+
+@app.route("/admin_dashboard")
+@login_required
+def admin_dashboard():
+    # --- MODIFICATION START: Fetch ALL orders from the database ---
+    all_orders = []
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        # This makes the cursor return rows as dictionary-like objects
+        conn.row_factory = sqlite3.Row 
+        c = conn.cursor()
+        # Fetch all orders, newest first
+        c.execute("SELECT * FROM orders ORDER BY id DESC")
+        rows = c.fetchall()
+        # Convert row objects to standard dictionaries for the template
+        all_orders = [dict(row) for row in rows]
+        conn.close()
+    except Exception as e:
+        print(f"DATABASE FETCH ERROR: {str(e)}")
+        flash("Could not retrieve order information.", "danger")
+        
+    return render_template("admin_dashboard.html", orders=all_orders)
+    # --- MODIFICATION END ---
 
 @app.route("/products")
 @login_required
