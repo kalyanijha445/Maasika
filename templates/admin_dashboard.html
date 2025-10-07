@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -46,29 +46,43 @@
     .app-main::-webkit-scrollbar { display: none; }
     .app-main { -ms-overflow-style: none; scrollbar-width: none; }
     
-    /* MODIFIED: Updated header styles to match screenshot */
+    /* MODIFIED: Updated header styles for centering */
     .app-header { 
         position: absolute; top: 0; left: 0; right: 0; z-index: 10; 
         padding: 25px 20px 15px 20px; 
         display: flex; 
+        justify-content: center; /* Center the title stack */
         align-items: center; /* Vertically center items */
-        gap: 15px; /* Space between back button and title */
         background: var(--container-bg);
         border-bottom: 1px solid var(--border-color);
     }
-    .header-btn { background: transparent; color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 50%; width: 40px; height: 40px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--transition-fast); text-decoration: none; flex-shrink: 0; }
+    .header-btn { 
+        position: absolute; /* Positioned absolutely to not interfere with title centering */
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent; color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 50%; width: 40px; height: 40px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--transition-fast); text-decoration: none; flex-shrink: 0; 
+    }
     .header-btn:hover { background: var(--section-bg); border-color: var(--primary-color); color: var(--primary-color); }
     
-    /* NEW: Styles for the stacked title */
+    /* MODIFIED: Styles for the centered title with logo */
     .page-title-stack {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         line-height: 1.1;
+    }
+    /* NEW: Style for title logo */
+    .title-logo {
+        height: 30px;
+        width: auto;
     }
     .page-title-stack .title-main, .page-title-stack .title-sub {
         font-weight: 800;
         color: var(--text-primary);
         margin: 0;
         padding: 0;
-        font-size: 23px; /* Matched to image */
+        font-size: 23px; 
     }
 
     .bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; height: 70px; background: #fff; border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; align-items: center; padding: 0 10px; box-shadow: 0 -10px 30px rgba(100,50,50,0.05); }
@@ -104,6 +118,7 @@
         font-weight: 700;
         color: var(--primary-dark);
         margin: 0;
+        word-break: break-word; /* MODIFIED: Prevents long product names from overflowing card on mobile */
     }
     .order-card-header .timestamp {
         font-size: 12px;
@@ -160,14 +175,14 @@
 <body>
 <div class="smartphone">
     <div class="screen-content">
-        <!-- MODIFIED: Rebuilt header to match the screenshot -->
+        <!-- MODIFIED: Rebuilt header to be centered with a logo and new title -->
         <header class="app-header">
             <a href="{{ url_for('dashboard') }}" class="header-btn" aria-label="Back to Dashboard" title="Back to Dashboard">
                 <i class="fa-solid fa-arrow-left"></i>
             </a>
             <div class="page-title-stack">
-                <h1 class="title-main">Admin Dashboard</h1>
-        
+                <img src="https://i.supaimg.com/0d259b0a-4648-48df-a930-5346d6a6dcb2.png" alt="Order List Logo" class="title-logo">
+                <h1 class="title-main">Order List</h1>
             </div>
         </header>
 
