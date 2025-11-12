@@ -265,7 +265,7 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
 
 def image_to_text_via_gemini(image_path):
     try:
-        model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        model = genai.GenerativeModel("gemini-2.0-flash")
         with open(image_path, "rb") as f:
             img_bytes = f.read()
             img_part = {"mime_type": "image/jpeg", "data": img_bytes}
@@ -299,7 +299,7 @@ def parse_lab_values_text(extracted_text):
     return values
 
 def generate_recommendations_from_inputs(age, cycle_days, period_days, description, lab_values, language="en"):
-    model = genai.GenerativeModel("gemini-2.0-flash-exp")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     language_name = LANGUAGE_MAP.get(language, "English")
     
     prompt_lines = [
