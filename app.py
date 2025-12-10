@@ -7,7 +7,7 @@ from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
 from werkzeug.utils import secure_filename
-from PIL import Image, ImageDraw, ImageFont # Import ImageFont
+from PIL import Image, ImageDraw, ImageFont 
 from fpdf import FPDF
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 import platform
 from telegram import Bot 
 
-GEMINI_API_KEY = "AIzaSyC0VVi3w0cPL3RAg2O7TolqACIxLQn-Bas"
+GEMINI_API_KEY = "AIzaSyB-8FG5iR-4pzkQAxt_bCCs5JVXgTTMt7Y"
 EMAIL_SENDER = "info.masika@gmail.com"  
 EMAIL_PASSWORD = "tglf gszh exgn gnmz"       
 EMAIL_RECEIVER = "vishmapasayat003@gmail.com"
@@ -265,7 +265,7 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
 
 def image_to_text_via_gemini(image_path):
     try:
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         with open(image_path, "rb") as f:
             img_bytes = f.read()
             img_part = {"mime_type": "image/jpeg", "data": img_bytes}
@@ -299,7 +299,7 @@ def parse_lab_values_text(extracted_text):
     return values
 
 def generate_recommendations_from_inputs(age, cycle_days, period_days, description, lab_values, language="en"):
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     language_name = LANGUAGE_MAP.get(language, "English")
     
     prompt_lines = [
