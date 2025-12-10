@@ -3,12 +3,11 @@ import random
 import sqlite3
 import time
 import re
-import io  # ADDED: Essential for fixing image memory issues
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
 from werkzeug.utils import secure_filename
-from PIL import Image, ImageDraw, ImageFont 
+from PIL import Image, ImageDraw, ImageFont # Import ImageFont
 from fpdf import FPDF
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
@@ -64,6 +63,7 @@ def init_db():
             password TEXT
         )
     ''')
+    # --- MODIFICATION START: Add an orders table ---
     c.execute('''
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,6 +76,7 @@ def init_db():
             order_time TEXT NOT NULL
         )
     ''')
+    # --- MODIFICATION END ---
     conn.commit()
     conn.close()
 
@@ -261,46 +262,21 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     return out_path
 
 
-# --- UPDATED: Image function with Resize and Safe Fallback ---
+
 def image_to_text_via_gemini(image_path):
-    # 1. FIX: Optimize image size to prevent Memory Crash (SIGKILL)
     try:
-        with Image.open(image_path) as img:
-            # Convert to RGB to ensure compatibility
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-            # Resize: Max 800x800 is enough for text reading and saves huge RAM
-            img.thumbnail((800, 800))
-            
-            # Save to memory buffer instead of disk
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='JPEG', quality=80)
-            img_bytes = img_byte_arr.getvalue()
-    except Exception as e:
-        return f"ERROR_PROCESSING_IMAGE: {e}"
-
-    img_part = {"mime_type": "image/jpeg", "data": img_bytes}
-    prompt_parts = [
-        img_part,
-        "Please extract any lab values (name:value pairs) from this lab report image. Return results as 'Marker: Value' lines. If none found, say 'NO_VALUES_FOUND'.",
-    ]
-
-    # 2. MODEL: Try your requested 'gemini-2.5-flash', but fallback if it 404s
-    try:
-        model = genai.GenerativeModel("gemini-2.5-flash") # As you requested
-        response = model.generate_content(prompt_parts, safety_settings=SAFETY_SETTINGS)
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        with open(image_path, "rb") as f:
+            img_bytes = f.read()
+            img_part = {"mime_type": "image/jpeg", "data": img_bytes}
+            prompt_parts = [
+                img_part,
+                "Please extract any lab values (name:value pairs) from this lab report image. Return results as 'Marker: Value' lines. If none found, say 'NO_VALUES_FOUND'.",
+            ]
+            response = model.generate_content(prompt_parts, safety_settings=SAFETY_SETTINGS)
         return response.text
     except Exception as e:
-        # If 2.5 fails (likely 404), use 1.5-flash which is standard
-        if "404" in str(e) or "not found" in str(e).lower():
-            try:
-                print("gemini-2.5-flash not found, falling back to gemini-1.5-flash")
-                model_fallback = genai.GenerativeModel("gemini-1.5-flash")
-                response = model_fallback.generate_content(prompt_parts, safety_settings=SAFETY_SETTINGS)
-                return response.text
-            except Exception as e2:
-                return f"ERROR_GEMINI_FALLBACK: {e2}"
-        return f"ERROR_GEMINI_2.5: {e}"
+        return f"ERROR_READING_IMAGE: {e}"
 
 def parse_lab_values_text(extracted_text):
     values = {}
@@ -323,7 +299,6 @@ def parse_lab_values_text(extracted_text):
     return values
 
 def generate_recommendations_from_inputs(age, cycle_days, period_days, description, lab_values, language="en"):
-    # Using 'gemini-2.5-flash' as requested
     model = genai.GenerativeModel("gemini-2.5-flash")
     language_name = LANGUAGE_MAP.get(language, "English")
     
@@ -353,14 +328,6 @@ def generate_recommendations_from_inputs(age, cycle_days, period_days, descripti
         response = model.generate_content([prompt], safety_settings=SAFETY_SETTINGS)
         return response.text
     except Exception as e:
-        # Fallback if 2.5 fails
-        if "404" in str(e) or "not found" in str(e).lower():
-            try:
-                model_fallback = genai.GenerativeModel("gemini-1.5-flash")
-                response = model_fallback.generate_content([prompt], safety_settings=SAFETY_SETTINGS)
-                return response.text
-            except Exception as e2:
-                 return f"ERROR_GEMINI_FALLBACK: {e2}"
         return f"ERROR_GENERATING_RECOMMENDATIONS: {e}"
 
 init_db()
@@ -375,6 +342,13 @@ def login_required(f):
     return decorated_function
 
 def create_order_image_card(details):
+    """
+    Generates a visually appealing, high-resolution PNG image card for a new product order.
+    Args:
+        details (dict): A dictionary containing order information.
+    Returns:
+        str: The file path of the generated PNG image.
+    """
     from textwrap import wrap
     
     # --- Card Configuration ---
@@ -425,6 +399,7 @@ def create_order_image_card(details):
     # 1. Header
     header_height = int(200 * scale)
 
+    # BUG FIX: Added a second, unused parameter `_y` to match the calling signature in the loop.
     def draw_header(draw_obj, _y):
         for y in range(header_height):
             r = int(header_gradient_start[0] + (header_gradient_end[0] - header_gradient_start[0]) * y / header_height)
@@ -456,7 +431,7 @@ def create_order_image_card(details):
     # 2. Section: New Order Received
     draw_list.append({'func': lambda d, y: d.text((padding, y), "New Order Received", font=font_header, fill=accent_color), 'height': int(65*scale)})
     
-    value_start_x = 300 * scale 
+    value_start_x = 300 * scale # <<< MODIFIED: Changed from 420 to 300 to give more space for the value text.
     line_wrap_width = 32
 
     def create_row_drawable(label, value, value_color=text_color):
