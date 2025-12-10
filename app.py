@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 import platform
 from telegram import Bot 
 
-GEMINI_API_KEY = "AIzaSyCLgjLotxkHjQtWr54Nn-cEiyHhUn6fsxI"
+GEMINI_API_KEY = "AIzaSyBzV0sXOmZyYf_5hzM8zvWya50EE3x6_0A"
 EMAIL_SENDER = "info.masika@gmail.com"  
 EMAIL_PASSWORD = "tglf gszh exgn gnmz"       
 EMAIL_RECEIVER = "vishmapasayat003@gmail.com"
