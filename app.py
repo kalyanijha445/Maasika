@@ -3,7 +3,7 @@ import random
 import sqlite3
 import time
 import re
-import io  # Added for memory handling
+import io
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
@@ -50,6 +50,23 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 genai.configure(api_key=GEMINI_API_KEY)
+
+# --- HELPER: Get Model with Fallback ---
+def get_gemini_model():
+    """Tries to get the Flash model, falls back to Pro if not found."""
+    # List of models to try in order of preference
+    # 1. gemini-1.5-flash-001: Specific version (often fixes 404s)
+    # 2. gemini-1.5-flash: Generic alias
+    # 3. gemini-1.5-pro: Heavier, but usually available
+    model_names = ["gemini-1.5-flash-001", "gemini-1.5-flash", "gemini-1.5-pro"]
+    
+    for name in model_names:
+        try:
+            return genai.GenerativeModel(name)
+        except Exception:
+            continue
+    # Default to flash-001 if all else fails, to let the error bubble up naturally
+    return genai.GenerativeModel("gemini-1.5-flash-001")
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -244,10 +261,10 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
 
 def image_to_text_via_gemini(image_path):
     try:
-        # FIX 1: Use gemini-1.5-flash (Standard & Faster model)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        # Use fallback logic to find a working model (Flash-001 or Pro)
+        model = get_gemini_model()
         
-        # FIX 2: Resize image to prevent Memory Crash (SIGKILL)
+        # Resize image to prevent Memory Crash (SIGKILL)
         with Image.open(image_path) as img:
             if img.mode != 'RGB':
                 img = img.convert('RGB')
@@ -265,11 +282,12 @@ def image_to_text_via_gemini(image_path):
             "Please extract any lab values (name:value pairs) from this lab report image. Return results as 'Marker: Value' lines. If none found, say 'NO_VALUES_FOUND'.",
         ]
         
+        # Pass list as argument
         response = model.generate_content(prompt_parts, safety_settings=SAFETY_SETTINGS)
         return response.text
     except Exception as e:
-        print(f"GEMINI ERROR: {e}")
-        return f"ERROR_READING_IMAGE: {e}"
+        print(f"GEMINI ERROR (Image): {e}")
+        return f"ERROR_READING_IMAGE: {str(e)}"
 
 def parse_lab_values_text(extracted_text):
     values = {}
@@ -292,8 +310,8 @@ def parse_lab_values_text(extracted_text):
     return values
 
 def generate_recommendations_from_inputs(age, cycle_days, period_days, description, lab_values, language="en"):
-    # FIX 3: Use gemini-1.5-flash here too for speed
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    # Use fallback logic here too
+    model = get_gemini_model()
     language_name = LANGUAGE_MAP.get(language, "English")
     
     prompt_lines = [
@@ -319,12 +337,12 @@ def generate_recommendations_from_inputs(age, cycle_days, period_days, descripti
     prompt = "\n".join(prompt_lines)
     
     try:
-        # Pass prompt as a list to avoid certain API type errors
+        # Wrap prompt in a list to satisfy API requirements
         response = model.generate_content([prompt], safety_settings=SAFETY_SETTINGS)
         return response.text
     except Exception as e:
         print(f"RECOMMENDATION ERROR: {e}")
-        return f"ERROR_GENERATING_RECOMMENDATIONS: {e}"
+        return f"ERROR_GENERATING_RECOMMENDATIONS: {str(e)}"
 
 init_db()
 
