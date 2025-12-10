@@ -325,7 +325,7 @@ def generate_recommendations_from_inputs(age, cycle_days, period_days, descripti
     prompt = "\n".join(prompt_lines)
     
     try:
-        response = model.generate_content([prompt], safety_settings=SAFETY_SETTINGS)
+        response = model.generate_content(prompt, safety_settings=SAFETY_SETTINGS)
         return response.text
     except Exception as e:
         return f"ERROR_GENERATING_RECOMMENDATIONS: {e}"
