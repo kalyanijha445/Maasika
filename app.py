@@ -3,7 +3,7 @@ import random
 import sqlite3
 import time
 import re
-import io
+import io  # ADDED: Essential for fixing image memory issues
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
@@ -18,7 +18,6 @@ from email.mime.text import MIMEText
 import platform
 from telegram import Bot 
 
-# --- CONFIGURATION ---
 GEMINI_API_KEY = "AIzaSyC0VVi3w0cPL3RAg2O7TolqACIxLQn-Bas"
 EMAIL_SENDER = "info.masika@gmail.com"  
 EMAIL_PASSWORD = "tglf gszh exgn gnmz"       
@@ -32,9 +31,11 @@ SAFETY_SETTINGS = [
     {"category": HarmCategory.HARM_CATEGORY_HARASSMENT, "threshold": HarmBlockThreshold.BLOCK_NONE}
 ]
 
+
 DB_NAME = "cycle_users.db"
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 ALLOWED_EXT = {"jpg", "jpeg", "png", "bmp", "tiff"}
+
 
 LANGUAGE_MAP = {
     "en": "English", "as": "Assamese", "bn": "Bengali", "brx": "Bodo", "doi": "Dogri",
@@ -50,23 +51,6 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 genai.configure(api_key=GEMINI_API_KEY)
-
-# --- HELPER: Get Model with Fallback ---
-def get_gemini_model():
-    """Tries to get the Flash model, falls back to Pro if not found."""
-    # List of models to try in order of preference
-    # 1. gemini-1.5-flash-001: Specific version (often fixes 404s)
-    # 2. gemini-1.5-flash: Generic alias
-    # 3. gemini-1.5-pro: Heavier, but usually available
-    model_names = ["gemini-1.5-flash-001", "gemini-1.5-flash", "gemini-1.5-pro"]
-    
-    for name in model_names:
-        try:
-            return genai.GenerativeModel(name)
-        except Exception:
-            continue
-    # Default to flash-001 if all else fails, to let the error bubble up naturally
-    return genai.GenerativeModel("gemini-1.5-flash-001")
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -99,6 +83,7 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT
 
 def _wrap_long_tokens(text, max_len=60):
+   
     out = []
     for token in (text or "").split():
         if len(token) <= max_len:
@@ -112,6 +97,7 @@ def sanitize_text_for_pdf(text):
     return text.replace("•", "").encode("latin-1", "replace").decode("latin-1")
 
 def create_pdf_report(patient_name, summary_text, meta: dict):
+    
     BRAND_NAME = "MASIKA"
     BRAND_TAGLINE = "Rewrite Your Period Story"
     BRAND_WEBSITE = "https://masika.onrender.com"
@@ -119,6 +105,7 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     BRAND_PHONE = "+91 6371646251"
     BRAND_ADDRESS = "BPUT Campus, Biju Patnaik University Of Technology, Odisha, Rourkela - 769015"
     LOGO_PATH = os.path.join("static", "logo.png")
+    
 
     COLOR_PRIMARY_LIGHT = (245, 235, 238)  
     COLOR_ACCENT = (235, 120, 140)         
@@ -129,6 +116,7 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     GRADIENT_START = (255, 255, 255)       
     GRADIENT_END = (252, 240, 243)         
 
+   
     def create_gradient_header(width, height, start_color, end_color, filename):
         img = Image.new("RGB", (width, height), "#FFFFFF")
         draw = ImageDraw.Draw(img)
@@ -137,6 +125,7 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
             r = int(r1 + (r2 - r1) * i / height); g = int(g1 + (g2 - g1) * i / height); b = int(b1 + (b2 - b1) * i / height)
             draw.line([(0, i), (width, i)], fill=(r, g, b))
         img.save(filename); return filename
+
 
     class PDF(FPDF):
         def footer(self):
@@ -149,6 +138,7 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
             self.cell(0, 5, BRAND_ADDRESS, 0, 1, 'C')
             self.cell(0, 5, f'Page {self.page_no()}', 0, 0, 'C')
 
+    
     pdf = PDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=20)
@@ -160,6 +150,7 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
         print("Arial font not found, falling back to core FPDF fonts.")
     pdf.set_font("Arial", "", 10)
 
+    
     gradient_img_path = create_gradient_header(210, 32, GRADIENT_START, GRADIENT_END, os.path.join(app.config["UPLOAD_FOLDER"], "header_gradient.png"))
     pdf.image(gradient_img_path, 0, 0, 210, 32)
     if os.path.exists(LOGO_PATH):
@@ -173,11 +164,13 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     pdf.cell(0, 5, f"Phone: {BRAND_PHONE}", ln=True, align='R'); pdf.set_x(145)
     pdf.cell(0, 5, f"Website: {BRAND_WEBSITE}", ln=True, align='R'); pdf.ln(18)
 
+    
     pdf.set_font('Arial', 'B', 20)
     pdf.set_text_color(*COLOR_TEXT_DARK)
     pdf.cell(0, 10, "AI-Analysed Health Report", ln=True, align='C') 
     pdf.ln(12)
 
+   
     pdf.set_font('Arial', 'B', 12)
     pdf.set_text_color(*COLOR_ACCENT)
     pdf.cell(0, 8, "Patient & Report Details", ln=True)
@@ -206,14 +199,19 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     
     pdf.set_y(max(y_left_end, y_right_end) + 5) 
 
+    
     def parse_masika_sections(text):
         sections = {}
         parts = re.split(r'\n*\s*(?=(SUMMARY|WHAT_TO_DO|WHAT_TO_AVOID|DIET_SUGGESTIONS|FOLLOW_UP):)', text)
         for i in range(1, len(parts), 2):
             keyword = parts[i]
+           
             content = parts[i+1].lstrip(':').strip()
+            
+           
             if content.upper().startswith(keyword + ':'):
                 content = content[len(keyword)+1:].strip()
+
             content = re.sub(r'[\*\-]', '•', content) 
             sections[keyword] = content
         return sections
@@ -224,8 +222,10 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     for title_key in section_order:
         if title_key in sections and sections[title_key]:
             pdf.ln(5)
+            
             pdf.set_font('Arial', 'B', 14)
             pdf.set_text_color(*COLOR_WHITE)
+           
             pdf.set_fill_color(*COLOR_ACCENT) 
             section_title = f"  {title_key.replace('_', ' ').title()}  "
             pdf.cell(pdf.get_string_width(section_title) + 5, 9, section_title, ln=True, fill=True); pdf.ln(4)
@@ -234,6 +234,7 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
             pdf.set_text_color(*COLOR_TEXT_DARK)
             content_lines = [line.strip() for line in sections[title_key].split('\n') if line.strip()]
             
+           
             for idx, line in enumerate(content_lines, start=1):
                 line = sanitize_text_for_pdf(line) 
                 if line.startswith('•'):
@@ -253,41 +254,53 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     pdf.set_x(12); pdf.set_font('Arial', 'I', 8)
     pdf.multi_cell(186, 4, "This is an AI-assisted report generated by MASIKA for informational purposes only. It is not a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider for any medical concerns.")
     
+   
     fname = f"{patient_name.replace(' ', '_')}_masika_report_{int(time.time())}.pdf"
     out_path = os.path.join(app.config["UPLOAD_FOLDER"], fname)
     pdf.output(out_path)
     return out_path
 
 
+# --- UPDATED: Image function with Resize and Safe Fallback ---
 def image_to_text_via_gemini(image_path):
+    # 1. FIX: Optimize image size to prevent Memory Crash (SIGKILL)
     try:
-        # Use fallback logic to find a working model (Flash-001 or Pro)
-        model = get_gemini_model()
-        
-        # Resize image to prevent Memory Crash (SIGKILL)
         with Image.open(image_path) as img:
+            # Convert to RGB to ensure compatibility
             if img.mode != 'RGB':
                 img = img.convert('RGB')
-            # Resize so max dimension is 1024px
-            img.thumbnail((1024, 1024))
+            # Resize: Max 800x800 is enough for text reading and saves huge RAM
+            img.thumbnail((800, 800))
             
-            # Save to BytesIO buffer
+            # Save to memory buffer instead of disk
             img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='JPEG', quality=85)
+            img.save(img_byte_arr, format='JPEG', quality=80)
             img_bytes = img_byte_arr.getvalue()
+    except Exception as e:
+        return f"ERROR_PROCESSING_IMAGE: {e}"
 
-        img_part = {"mime_type": "image/jpeg", "data": img_bytes}
-        prompt_parts = [
-            img_part,
-            "Please extract any lab values (name:value pairs) from this lab report image. Return results as 'Marker: Value' lines. If none found, say 'NO_VALUES_FOUND'.",
-        ]
-        
-        # Pass list as argument
+    img_part = {"mime_type": "image/jpeg", "data": img_bytes}
+    prompt_parts = [
+        img_part,
+        "Please extract any lab values (name:value pairs) from this lab report image. Return results as 'Marker: Value' lines. If none found, say 'NO_VALUES_FOUND'.",
+    ]
+
+    # 2. MODEL: Try your requested 'gemini-2.5-flash', but fallback if it 404s
+    try:
+        model = genai.GenerativeModel("gemini-2.5-flash") # As you requested
         response = model.generate_content(prompt_parts, safety_settings=SAFETY_SETTINGS)
         return response.text
     except Exception as e:
-        print(f"GEMINI ERROR (Image): {e}")
-        return f"ERROR_READING_IMAGE: {str(e)}"
+        # If 2.5 fails (likely 404), use 1.5-flash which is standard
+        if "404" in str(e) or "not found" in str(e).lower():
+            try:
+                print("gemini-2.5-flash not found, falling back to gemini-1.5-flash")
+                model_fallback = genai.GenerativeModel("gemini-1.5-flash")
+                response = model_fallback.generate_content(prompt_parts, safety_settings=SAFETY_SETTINGS)
+                return response.text
+            except Exception as e2:
+                return f"ERROR_GEMINI_FALLBACK: {e2}"
+        return f"ERROR_GEMINI_2.5: {e}"
 
 def parse_lab_values_text(extracted_text):
     values = {}
@@ -310,8 +323,8 @@ def parse_lab_values_text(extracted_text):
     return values
 
 def generate_recommendations_from_inputs(age, cycle_days, period_days, description, lab_values, language="en"):
-    # Use fallback logic here too
-    model = get_gemini_model()
+    # Using 'gemini-2.5-flash' as requested
+    model = genai.GenerativeModel("gemini-2.5-flash")
     language_name = LANGUAGE_MAP.get(language, "English")
     
     prompt_lines = [
@@ -337,12 +350,18 @@ def generate_recommendations_from_inputs(age, cycle_days, period_days, descripti
     prompt = "\n".join(prompt_lines)
     
     try:
-        # Wrap prompt in a list to satisfy API requirements
         response = model.generate_content([prompt], safety_settings=SAFETY_SETTINGS)
         return response.text
     except Exception as e:
-        print(f"RECOMMENDATION ERROR: {e}")
-        return f"ERROR_GENERATING_RECOMMENDATIONS: {str(e)}"
+        # Fallback if 2.5 fails
+        if "404" in str(e) or "not found" in str(e).lower():
+            try:
+                model_fallback = genai.GenerativeModel("gemini-1.5-flash")
+                response = model_fallback.generate_content([prompt], safety_settings=SAFETY_SETTINGS)
+                return response.text
+            except Exception as e2:
+                 return f"ERROR_GEMINI_FALLBACK: {e2}"
+        return f"ERROR_GENERATING_RECOMMENDATIONS: {e}"
 
 init_db()
 
@@ -357,11 +376,14 @@ def login_required(f):
 
 def create_order_image_card(details):
     from textwrap import wrap
+    
+    # --- Card Configuration ---
     scale = 2
     width = 800 * scale
     padding = 70 * scale
     LOGO_PATH = os.path.join("static", "logo.png")
 
+    # --- Professional Color Palette ---
     bg_color = (255, 255, 255)
     header_gradient_start = (255, 243, 245)
     header_gradient_end = (252, 238, 241)
@@ -371,6 +393,7 @@ def create_order_image_card(details):
     brand_title_color = (190, 60, 80)
     line_color = (235, 235, 235)
 
+    # --- Advanced Font Setup ---
     def get_font(style='regular', size=24):
         font_map = {
             'windows': {'bold': 'C:/Windows/Fonts/segoeuib.ttf', 'regular': 'C:/Windows/Fonts/segoeui.ttf', 'light': 'C:/Windows/Fonts/segoeuil.ttf'},
@@ -396,7 +419,10 @@ def create_order_image_card(details):
     font_value = get_font('bold', 28 * scale)
     font_address = get_font('regular', 26 * scale)
 
+    # --- Dynamic Drawing Logic ---
     draw_list = []
+    
+    # 1. Header
     header_height = int(200 * scale)
 
     def draw_header(draw_obj, _y):
@@ -406,11 +432,16 @@ def create_order_image_card(details):
             b = int(header_gradient_start[2] + (header_gradient_end[2] - header_gradient_start[2]) * y / header_height)
             draw_obj.line([(0, y), (width, y)], fill=(r, g, b))
         
+        # Temp image needed for pasting RGBA logo onto an RGB background
+        temp_img_for_paste = Image.new('RGB', (width, header_height))
+        
         if os.path.exists(LOGO_PATH):
             logo_size = int(120 * scale)
             logo_img = Image.open(LOGO_PATH).convert("RGBA")
             logo_img.thumbnail((logo_size, logo_size), Image.Resampling.LANCZOS)
             logo_y = (header_height - logo_size) // 2
+            
+            # Paste logo onto the main image
             img.paste(logo_img, (padding, logo_y), logo_img)
             text_x_start = padding + logo_size + int(30 * scale)
         else:
@@ -422,13 +453,14 @@ def create_order_image_card(details):
     draw_list.append({'func': draw_header, 'height': header_height})
     draw_list.append({'func': None, 'height': padding})
 
+    # 2. Section: New Order Received
     draw_list.append({'func': lambda d, y: d.text((padding, y), "New Order Received", font=font_header, fill=accent_color), 'height': int(65*scale)})
     
     value_start_x = 300 * scale 
     line_wrap_width = 32
 
     def create_row_drawable(label, value, value_color=text_color):
-        wrapped_value = '\n'.join(wrap(str(value), width=line_wrap_width))
+        wrapped_value = '\n'.join(wrap(str(value), width=line_wrap_width)) # Ensure value is a string
         temp_draw = ImageDraw.Draw(Image.new('RGB', (1,1)))
         bbox = temp_draw.multiline_textbbox((0,0), wrapped_value, font=font_value, spacing=int(10*scale))
         height = (bbox[3] - bbox[1]) + int(30 * scale)
@@ -452,6 +484,7 @@ def create_order_image_card(details):
         
     draw_list.append(create_divider_drawable())
 
+    # 3. Section: Customer Information
     draw_list.append({'func': lambda d, y: d.text((padding, y), "Customer Information", font=font_header, fill=accent_color), 'height': int(65*scale)})
     draw_list.append(create_row_drawable("Name:", details['user_name']))
     draw_list.append(create_row_drawable("Email:", details['user_email'], accent_color))
@@ -459,25 +492,30 @@ def create_order_image_card(details):
     
     draw_list.append(create_divider_drawable())
 
+    # 4. Section: Shipping Address
     draw_list.append({'func': lambda d, y: d.text((padding, y), "Shipping Address", font=font_header, fill=accent_color), 'height': int(65*scale)})
     
+    # Address does not have a label, so it's handled differently
     address_value = details['address']
-    wrapped_address = '\n'.join(wrap(address_value, width=line_wrap_width*2))
+    wrapped_address = '\n'.join(wrap(address_value, width=line_wrap_width*2)) # Address can be wider
     temp_draw = ImageDraw.Draw(Image.new('RGB', (1,1)))
     bbox = temp_draw.multiline_textbbox((0,0), wrapped_address, font=font_address, spacing=int(10*scale))
     address_height = (bbox[3] - bbox[1]) + int(20 * scale)
     draw_list.append({'func': lambda d, y: d.multiline_text((padding, y), wrapped_address, font=font_address, fill=text_color, spacing=int(10*scale)), 'height': address_height})
 
+    # --- Calculate Total Height and Create Canvas ---
     total_height = sum(item['height'] for item in draw_list) + padding
     img = Image.new('RGB', (width, total_height), bg_color)
     draw = ImageDraw.Draw(img)
 
+    # --- Execute All Drawing Functions ---
     current_y = 0
     for item in draw_list:
         if item['func']:
             item['func'](draw, current_y)
         current_y += item['height']
 
+    # --- Finalize and Save ---
     filename = f"order_{int(time.time())}.png"
     filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     img.save(filepath, "PNG", quality=95, optimize=True)
@@ -510,6 +548,7 @@ def order_product():
         'time': current_time,
     }
 
+    # --- MODIFICATION START: Save order to the database instead of session ---
     try:
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
@@ -530,13 +569,19 @@ def order_product():
     except Exception as e:
         print(f"DATABASE ERROR: {str(e)}")
         return jsonify({'success': False, 'message': 'Failed to save order details.'})
+    # --- MODIFICATION END ---
+
 
     image_path = None
     try:
+        # Generate the beautiful image card
         image_path = create_order_image_card(order_details)
+        
         bot = Bot(token=TELEGRAM_BOT_TOKEN)
+        
         caption = f" ✨ New Order Received! ✨ from {user_name} !"
 
+        # Send the generated image to Telegram
         with open(image_path, 'rb') as photo_file:
             bot.send_photo(
                 chat_id=TELEGRAM_CHAT_ID,
@@ -552,6 +597,7 @@ def order_product():
         print(f"TELEGRAM/IMAGE GEN ERROR: {error_message}")
         return jsonify({'success': False, 'message': error_message})
     finally:
+        # Clean up the generated image file
         if image_path and os.path.exists(image_path):
             os.remove(image_path)
 
@@ -658,6 +704,7 @@ def dashboard():
             "Report Generated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         
+      
         if selected_language == "en":
             pdf_path = create_pdf_report(patient_name, recommendations_text, meta)
             pdf_link = url_for("download_file", filename=os.path.basename(pdf_path))
@@ -669,13 +716,17 @@ def dashboard():
 @app.route("/admin_dashboard")
 @login_required
 def admin_dashboard():
+    # --- MODIFICATION START: Fetch ALL orders from the database ---
     all_orders = []
     try:
         conn = sqlite3.connect(DB_NAME)
+        # This makes the cursor return rows as dictionary-like objects
         conn.row_factory = sqlite3.Row 
         c = conn.cursor()
+        # Fetch all orders, newest first
         c.execute("SELECT * FROM orders ORDER BY id DESC")
         rows = c.fetchall()
+        # Convert row objects to standard dictionaries for the template
         all_orders = [dict(row) for row in rows]
         conn.close()
     except Exception as e:
@@ -683,6 +734,7 @@ def admin_dashboard():
         flash("Could not retrieve order information.", "danger")
         
     return render_template("admin_dashboard.html", orders=all_orders)
+    # --- MODIFICATION END ---
 
 @app.route("/products")
 @login_required
