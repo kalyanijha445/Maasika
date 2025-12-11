@@ -113,7 +113,9 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     BRAND_EMAIL = "info.masika@gmail.com"
     BRAND_PHONE = "+91 6371646251"
     BRAND_ADDRESS = "BPUT Campus, Biju Patnaik University Of Technology, Odisha, Rourkela - 769015"
-    LOGO_PATH = os.path.join("static", "logo.png")
+    # LOGO_PATH = os.path.join("static", "logo.png")
+    LOGO_PATH = os.path.join(os.getcwd(), "static", "logo.png")
+
     
 
     COLOR_PRIMARY_LIGHT = (245, 235, 238)  
