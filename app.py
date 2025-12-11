@@ -164,8 +164,16 @@ def create_pdf_report(patient_name, summary_text, meta: dict):
     
     gradient_img_path = create_gradient_header(210, 32, GRADIENT_START, GRADIENT_END, os.path.join(app.config["UPLOAD_FOLDER"], "header_gradient.png"))
     pdf.image(gradient_img_path, 0, 0, 210, 32)
-    if os.path.exists(LOGO_PATH):
-        pdf.image(LOGO_PATH, 15, 8, 16)
+    # if os.path.exists(LOGO_PATH):
+    #     pdf.image(LOGO_PATH, 15, 8, 16)
+    try:
+        if os.path.exists(LOGO_PATH):
+            pdf.image(LOGO_PATH, 15, 8, 16)
+        else:
+            print("WARNING: Logo not found → skipping")
+    except Exception as e:
+        print("ERROR: Logo failed to load → skipping", e)
+
 
     pdf.set_xy(35, 9); pdf.set_font('Arial', 'B', 20); pdf.set_text_color(*COLOR_TEXT_DARK); pdf.cell(0, 8, BRAND_NAME)
     pdf.set_xy(35, 17); pdf.set_font('Arial', 'I', 9); pdf.set_text_color(*COLOR_TEXT_MEDIUM); pdf.cell(0, 8, BRAND_TAGLINE)
