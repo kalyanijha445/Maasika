@@ -287,7 +287,9 @@ def image_to_text_via_gemini(image_path):
         return "ERROR_API_KEY_MISSING_IN_ENV"
 
     try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        # model = genai.GenerativeModel("gemini-2.5-flash")
+        model = genai.GenerativeModel("gemini-1.5-flash-lite")
+
         with open(image_path, "rb") as f:
             img_bytes = f.read()
             img_part = {"mime_type": "image/jpeg", "data": img_bytes}
@@ -325,7 +327,8 @@ def generate_recommendations_from_inputs(age, cycle_days, period_days, descripti
     if not GEMINI_API_KEY:
         return "Error: Gemini API Key is missing. Please check .env file."
         
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    # model = genai.GenerativeModel("gemini-2.5-flash")
+    model = genai.GenerativeModel("gemini-1.5-flash-lite")
     language_name = LANGUAGE_MAP.get(language, "English")
     
     prompt_lines = [
